@@ -16,6 +16,6 @@ const UserSchema = new Schema<IUser>({
   passwordHash: { type: String, required: true },
   role: { type: String, enum: ['admin', 'user'], default: 'user' },
   createdAt: { type: Date, default: Date.now },
-})
+}, { collection: 'vahini_users' })
 
 export const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>('User', UserSchema)
