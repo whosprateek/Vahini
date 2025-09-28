@@ -10,22 +10,55 @@ const API_BASE = (() => {
 export const API_BASE_URL = API_BASE
 import { getToken } from '@/lib/auth-token'
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
 export async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
   const token = typeof window !== 'undefined' ? getToken() : null
   const headers: Record<string, string> = { "Content-Type": "application/json", ...(init?.headers as any || {}) }
   if (token) headers['Authorization'] = `Bearer ${token}`
-  const res = await fetch(input, {
-    headers,
-    credentials: "include",
-    ...init,
-  })
-  if (!res.ok) {
-    let msg = `${res.status} ${res.statusText}`
+
+  const method = (init?.method || 'GET').toString().toUpperCase()
+  const tryCount = method === 'GET' || method === 'HEAD' ? 3 : 1
+  const backoffs = [250, 750, 1500]
+
+  let lastErr: any = null
+  for (let attempt = 0; attempt < tryCount; attempt++) {
     try {
-      const data = await res.json()
-      if (data?.error) msg = data.error
-    } catch {}
-    throw new Error(msg)
+      const res = await fetch(input, {
+        headers,
+        credentials: "include",
+        ...init,
+        // Ensure CORS mode in browsers
+        mode: typeof window !== 'undefined' ? 'cors' : (init as any)?.mode,
+      } as RequestInit)
+
+      if (res.ok) {
+        return res.json()
+      }
+
+      // Retry on transient gateway errors for idempotent requests
+      if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < tryCount - 1) {
+        await sleep(backoffs[attempt] || 1000)
+        continue
+      }
+
+      let msg = `${res.status} ${res.statusText}`
+      try {
+        const data = await res.json()
+        if ((data as any)?.error) msg = (data as any).error
+      } catch {}
+      throw new Error(msg)
+    } catch (e) {
+      lastErr = e
+      // Network error (no response) — retry idempotent requests
+      if (attempt < tryCount - 1) {
+        await sleep(backoffs[attempt] || 1000)
+        continue
+      }
+      throw e
+    }
   }
-  return res.json()
+  throw lastErr ?? new Error('Request failed')
 }
