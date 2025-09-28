@@ -11,8 +11,18 @@ import { seedAdmin } from './utils/seedAdmin'
 
 const app = express()
 
+// Allow multiple origins: comma-separated CORS_ORIGIN env, plus sensible defaults
+const configuredOrigins = (env.CORS_ORIGIN || '').split(',').map(o => o.trim()).filter(Boolean)
+const defaultOrigins = ['http://localhost:3000', 'https://client-dj1ag2tsv-whosprateeks-projects.vercel.app']
+const allowedOrigins = Array.from(new Set([...configuredOrigins, ...defaultOrigins]))
+
 const corsOptions: cors.CorsOptions = {
-  origin: env.CORS_ORIGIN,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true)
+    // Allow exact matches or any Vercel preview/prod domain
+    const ok = allowedOrigins.includes(origin) || /^https:\/\/.*\.vercel\.app$/i.test(origin)
+    return ok ? callback(null, true) : callback(new Error('Not allowed by CORS'))
+  },
   credentials: true,
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
