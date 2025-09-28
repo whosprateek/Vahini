@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
+import { sign as jwtSign, verify as jwtVerify, type SignOptions, type Secret } from 'jsonwebtoken'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import { User } from '../models/User'
@@ -23,9 +23,10 @@ const loginSchema = z.object({
   rememberMe: z.boolean().optional(),
 })
 
-function signToken(payload: object, expiresIn: string | number, jti: string) {
+function signToken(payload: object, expiresInSeconds: number, jti: string) {
   // Set JWT ID via options; do not duplicate jti in payload to avoid jsonwebtoken error
-  return jwt.sign(payload as any, env.JWT_SECRET, { expiresIn, jwtid: jti })
+  const options: SignOptions = { expiresIn: expiresInSeconds, jwtid: jti }
+  return jwtSign(payload as any, env.JWT_SECRET as Secret, options)
 }
 
 // Keep cookie for compatibility, but client uses Authorization header
@@ -109,7 +110,7 @@ export const me = async (req: Request, res: Response) => {
   const token = getTokenFromRequest(req)
   if (!token) throw new ApiError(401, 'Not authenticated')
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET) as { sub: string; email: string; role: string }
+    const decoded = jwtVerify(token, env.JWT_SECRET as Secret) as { sub: string; email: string; role: string }
     const user = await User.findById(decoded.sub)
     if (!user) throw new ApiError(401, 'Invalid session')
     res.json({
@@ -149,7 +150,7 @@ export const sessionInfo = async (req: AuthRequest, res: Response) => {
   const token = (req.headers['authorization'] as string)?.slice(7)
   if (!token) throw new ApiError(401, 'Not authenticated')
   try {
-    const d = jwt.verify(token, env.JWT_SECRET) as any
+    const d = jwtVerify(token, env.JWT_SECRET as Secret) as any
     res.json({ session: { iat: d.iat, exp: d.exp } })
   } catch {
     throw new ApiError(401, 'Invalid session')
