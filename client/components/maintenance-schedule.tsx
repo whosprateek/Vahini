@@ -45,6 +45,8 @@ export function MaintenanceSchedule() {
   })
   const [formDate, setFormDate] = useState<Date | undefined>(undefined)
   const [formTime, setFormTime] = useState<string>("10:00")
+  const [formError, setFormError] = useState<string>("")
+  const [submitting, setSubmitting] = useState(false)
 
   const typeOptions = [
     "Preventive Maintenance","Equipment Replacement","Emergency Repair","Calibration","Inspection"
@@ -66,27 +68,33 @@ export function MaintenanceSchedule() {
   async function submitTask(e: React.FormEvent) {
     e.preventDefault()
     if (isDemo) { addNotification({ type: 'info', title: 'Demo', message: 'Task creation is disabled in demo.' }); return }
+    setFormError("")
+    // Basic client-side validation to match server contract
+    if (!form.taskName.trim()) return setFormError('Task name is required')
+    if (!form.type.trim()) return setFormError('Type is required')
+    if (!form.zone.trim()) return setFormError('Zone is required')
+    if (!form.assignedTechnician.trim()) return setFormError('Assigned technician is required')
+    if (!formDate) return setFormError('Due date is required')
+
+    setSubmitting(true)
     try {
-      const dueISO = (() => {
-        if (formDate) {
-          const [hh, mm] = formTime.split(':')
-          const d = new Date(formDate)
-          d.setHours(Number(hh) || 0)
-          d.setMinutes(Number(mm) || 0)
-          d.setSeconds(0); d.setMilliseconds(0)
-          return d.toISOString()
-        }
-        return form.dueDate
-      })()
+      const [hh, mm] = formTime.split(':')
+      const d = new Date(formDate)
+      d.setHours(Number(hh) || 0)
+      d.setMinutes(Number(mm) || 0)
+      d.setSeconds(0); d.setMilliseconds(0)
+      const dueISO = d.toISOString()
       const payload = { ...form, dueDate: dueISO }
-      const d = await fetchJson<{ task: Task }>(`${API_BASE_URL}/tasks`, { method: 'POST', body: JSON.stringify(payload) })
-      setTasks((prev) => [d.task, ...prev])
-      addNotification({ type: 'success', title: 'Maintenance Task Scheduled', message: `${d.task.taskName} on ${new Date(d.task.dueDate).toLocaleString()}`, region: form.zone })
+      const resp = await fetchJson<{ task: Task }>(`${API_BASE_URL}/tasks`, { method: 'POST', body: JSON.stringify(payload) })
+      setTasks((prev) => [resp.task, ...prev])
+      addNotification({ type: 'success', title: 'Maintenance Task Scheduled', message: `${resp.task.taskName} on ${new Date(resp.task.dueDate).toLocaleString()}`, region: form.zone })
       setOpen(false)
       setForm({ taskName: "", type: "", priority: "medium", dueDate: "", zone: "", assignedTechnician: "" })
       setFormDate(undefined); setFormTime("10:00")
     } catch (e) {
       addNotification({ type: 'warning', title: 'Failed to schedule task', message: (e as Error).message })
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -193,6 +201,7 @@ export function MaintenanceSchedule() {
                 <DialogTitle>Schedule Maintenance Task</DialogTitle>
               </DialogHeader>
               <form className="space-y-3" onSubmit={submitTask}>
+                {formError && <p className="text-sm text-red-600">{formError}</p>}
                 <div>
                   <Label>Task Name</Label>
                   <Input value={form.taskName} onChange={(e) => setForm({ ...form, taskName: e.target.value })} required />
@@ -200,7 +209,7 @@ export function MaintenanceSchedule() {
                 <div>
                   <Label>Type</Label>
                   <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Select type (required)" /></SelectTrigger>
                     <SelectContent>
                       {typeOptions.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                     </SelectContent>
@@ -224,7 +233,7 @@ export function MaintenanceSchedule() {
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-start">
-                          {formDate ? formDate.toDateString() : 'Pick a date'}
+                          {formDate ? formDate.toDateString() : 'Pick a date (required)'}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -238,7 +247,7 @@ export function MaintenanceSchedule() {
                   <div>
                     <Label>Zone</Label>
                     <Select value={form.zone} onValueChange={(v) => setForm({ ...form, zone: v })}>
-                      <SelectTrigger><SelectValue placeholder="Select zone" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select zone (required)" /></SelectTrigger>
                       <SelectContent>
                         {zoneOptions.map(z => <SelectItem key={z} value={z}>{z}</SelectItem>)}
                       </SelectContent>
@@ -250,8 +259,8 @@ export function MaintenanceSchedule() {
                   <Input value={form.assignedTechnician} onChange={(e) => setForm({ ...form, assignedTechnician: e.target.value })} required />
                 </div>
                 <div className="pt-2 flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-                  <Button type="submit">Save</Button>
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={submitting}>Cancel</Button>
+                  <Button type="submit" disabled={submitting || !form.taskName || !form.type || !form.zone || !form.assignedTechnician || !formDate}>Save</Button>
                 </div>
               </form>
             </DialogContent>
