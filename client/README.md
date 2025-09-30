@@ -66,11 +66,7 @@ A comprehensive power grid monitoring and management system built with Next.js, 
 5. **Open your browser**
    Navigate to [http://localhost:3000](http://localhost:3000)
 
-## 🔑 Demo Credentials
-
-For testing the authentication system:
-- **Email**: `admin@powergrid.com`
-- **Password**: `admin123`
+<!-- Demo credentials removed for security. Use test users created via your API in a dev environment. -->
 
 ## 📱 Available Scripts
 

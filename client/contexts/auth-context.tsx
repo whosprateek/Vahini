@@ -16,7 +16,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   isDemo: boolean
   login: (email: string, password: string, rememberMe: boolean) => Promise<boolean>
-  loginDemo: () => Promise<boolean>
+  // loginDemo removed
   logout: () => Promise<void>
   isLoading: boolean
 }
@@ -34,7 +34,7 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isDemo, setIsDemo] = useState<boolean>(false)
+  const [isDemo, setIsDemo] = useState<boolean>(false) // legacy flag retained to gate demo-only UI, but demo login is disabled
 
   // Check for existing session on mount via backend (using JWT header)
   useEffect(() => {
@@ -53,8 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!cancelled) setUser(null)
       } finally {
         if (!cancelled) {
-          const flag = typeof window !== 'undefined' ? window.localStorage.getItem('VAHINI_DEMO') === '1' : false
-          setIsDemo(flag || (user?.email === 'guest@vahini.local'))
+          setIsDemo(false)
           setIsLoading(false)
         }
       }
@@ -73,9 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(data.token, rememberMe)
       setUser(data.user)
       if (typeof window !== 'undefined') {
-        const demo = data.user.email === 'guest@vahini.local'
-        window.localStorage.setItem('VAHINI_DEMO', demo ? '1' : '0')
-        setIsDemo(demo)
+        setIsDemo(false)
       }
       return true
     } catch (e) {
@@ -86,19 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const loginDemo = async (): Promise<boolean> => {
-    const email = 'guest@vahini.local'
-    const password = 'guest-demo-123'
-    // Try login first
-    let ok = await login(email, password, false)
-    if (ok) return true
-    // Attempt register then login
-    try {
-      await fetchJson(`${API_BASE_URL}/auth/register`, { method: 'POST', body: JSON.stringify({ email, password, firstName: 'Guest', lastName: 'User', role: 'user' }) })
-    } catch {}
-    ok = await login(email, password, false)
-    return ok
-  }
+  // Demo login removed to avoid hardcoded credentials
 
   const logout = async () => {
     setIsLoading(true)
@@ -118,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user,
     isDemo,
     login,
-    loginDemo,
+    // loginDemo removed
     logout,
     isLoading
   }

@@ -44,6 +44,7 @@ export function MaintenanceSchedule() {
     assignedTechnician: "",
   })
   const [formDate, setFormDate] = useState<Date | undefined>(undefined)
+  const [formDateStr, setFormDateStr] = useState<string>("")
   const [formTime, setFormTime] = useState<string>("10:00")
   const [formError, setFormError] = useState<string>("")
   const [submitting, setSubmitting] = useState(false)
@@ -65,6 +66,15 @@ export function MaintenanceSchedule() {
   const upcomingMaintenance = useMemo(() => tasks.filter(t => t.status !== 'completed').sort((a,b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()), [tasks])
   const completedMaintenance = useMemo(() => tasks.filter(t => t.status === 'completed').slice(0, 5), [tasks])
 
+  const stats = useMemo(() => {
+    const now = Date.now()
+    const scheduled = tasks.filter(t => t.status === 'scheduled').length
+    const inProgress = tasks.filter(t => t.status === 'in_progress').length
+    const completed = tasks.filter(t => t.status === 'completed').length
+    const overdue = tasks.filter(t => t.status !== 'completed' && new Date(t.dueDate).getTime() < now).length
+    return { scheduled, inProgress, completed, overdue }
+  }, [tasks])
+
   async function submitTask(e: React.FormEvent) {
     e.preventDefault()
     if (isDemo) { addNotification({ type: 'info', title: 'Demo', message: 'Task creation is disabled in demo.' }); return }
@@ -74,12 +84,13 @@ export function MaintenanceSchedule() {
     if (!form.type.trim()) return setFormError('Type is required')
     if (!form.zone.trim()) return setFormError('Zone is required')
     if (!form.assignedTechnician.trim()) return setFormError('Assigned technician is required')
-    if (!formDate) return setFormError('Due date is required')
+    if (!formDate && !formDateStr) return setFormError('Due date is required')
 
     setSubmitting(true)
     try {
       const [hh, mm] = formTime.split(':')
-      const d = new Date(formDate)
+      const base = formDate ? new Date(formDate) : new Date(formDateStr)
+      const d = base
       d.setHours(Number(hh) || 0)
       d.setMinutes(Number(mm) || 0)
       d.setSeconds(0); d.setMilliseconds(0)
@@ -90,7 +101,7 @@ export function MaintenanceSchedule() {
       addNotification({ type: 'success', title: 'Maintenance Task Scheduled', message: `${resp.task.taskName} on ${new Date(resp.task.dueDate).toLocaleString()}`, region: form.zone })
       setOpen(false)
       setForm({ taskName: "", type: "", priority: "medium", dueDate: "", zone: "", assignedTechnician: "" })
-      setFormDate(undefined); setFormTime("10:00")
+      setFormDate(undefined); setFormDateStr(""); setFormTime("10:00")
     } catch (e) {
       addNotification({ type: 'warning', title: 'Failed to schedule task', message: (e as Error).message })
     } finally {
@@ -143,7 +154,7 @@ export function MaintenanceSchedule() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold">8</div>
+                <div className="text-2xl font-bold">{stats.scheduled}</div>
                 <div className="text-sm text-muted-foreground">Scheduled</div>
               </div>
               <CalendarIconLucide className="w-5 h-5 text-blue-500" />
@@ -154,7 +165,7 @@ export function MaintenanceSchedule() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold">3</div>
+                <div className="text-2xl font-bold">{stats.inProgress}</div>
                 <div className="text-sm text-muted-foreground">In Progress</div>
               </div>
               <Wrench className="w-5 h-5 text-orange-500" />
@@ -165,7 +176,7 @@ export function MaintenanceSchedule() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold">12</div>
+                <div className="text-2xl font-bold">{stats.completed}</div>
                 <div className="text-sm text-muted-foreground">Completed</div>
               </div>
               <CheckCircle className="w-5 h-5 text-green-500" />
@@ -176,7 +187,7 @@ export function MaintenanceSchedule() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold">2</div>
+                <div className="text-2xl font-bold">{stats.overdue}</div>
                 <div className="text-sm text-muted-foreground">Overdue</div>
               </div>
               <AlertCircle className="w-5 h-5 text-red-500" />
@@ -209,7 +220,7 @@ export function MaintenanceSchedule() {
                 <div>
                   <Label>Type</Label>
                   <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select type (required)" /></SelectTrigger>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select type (required)" /></SelectTrigger>
                     <SelectContent>
                       {typeOptions.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                     </SelectContent>
@@ -219,7 +230,7 @@ export function MaintenanceSchedule() {
                   <div>
                     <Label>Priority</Label>
                     <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v as Task['priority'] })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="low">Low</SelectItem>
                         <SelectItem value="medium">Medium</SelectItem>
@@ -230,16 +241,8 @@ export function MaintenanceSchedule() {
                   </div>
                   <div>
                     <Label>Due Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start">
-                          {formDate ? formDate.toDateString() : 'Pick a date (required)'}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarWidget mode="single" selected={formDate} onSelect={setFormDate} initialFocus />
-                      </PopoverContent>
-                    </Popover>
+                    {/* Native date input for robust UX in modal; calendar can be re-enabled later */}
+                    <Input type="date" value={formDateStr} onChange={(e) => setFormDateStr(e.target.value)} required />
                     <div className="mt-2 flex gap-2">
                       <Input type="time" value={formTime} onChange={(e) => setFormTime(e.target.value)} />
                     </div>
@@ -247,7 +250,7 @@ export function MaintenanceSchedule() {
                   <div>
                     <Label>Zone</Label>
                     <Select value={form.zone} onValueChange={(v) => setForm({ ...form, zone: v })}>
-                      <SelectTrigger><SelectValue placeholder="Select zone (required)" /></SelectTrigger>
+                      <SelectTrigger className="w-full"><SelectValue placeholder="Select zone (required)" /></SelectTrigger>
                       <SelectContent>
                         {zoneOptions.map(z => <SelectItem key={z} value={z}>{z}</SelectItem>)}
                       </SelectContent>
@@ -260,7 +263,7 @@ export function MaintenanceSchedule() {
                 </div>
                 <div className="pt-2 flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={submitting}>Cancel</Button>
-                  <Button type="submit" disabled={submitting || !form.taskName || !form.type || !form.zone || !form.assignedTechnician || !formDate}>Save</Button>
+                  <Button type="submit" disabled={submitting || !form.taskName || !form.type || !form.zone || !form.assignedTechnician || (!formDate && !formDateStr)}>Save</Button>
                 </div>
               </form>
             </DialogContent>
@@ -324,9 +327,12 @@ export function MaintenanceSchedule() {
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
+                  {!isDemo && <StartButton task={maintenance} onUpdated={(t) => setTasks(prev => prev.map(p => p.id === t.id ? t : p))} />}
+                  {!isDemo && <CompleteButton task={maintenance} onUpdated={(t) => setTasks(prev => prev.map(p => p.id === t.id ? t : p))} />}
                   {!isDemo && <EditScheduleDialog task={maintenance} onUpdated={(t) => setTasks(prev => prev.map(p => p.id === t.id ? t : p))} />}
                   {!isDemo && <AssignTechDialog task={maintenance} onUpdated={(t) => setTasks(prev => prev.map(p => p.id === t.id ? t : p))} />}
+                  {!isDemo && <DeleteTaskButton id={maintenance.id} onDeleted={(id) => setTasks(prev => prev.filter(p => p.id !== id))} />}
                   <ViewDetailsDialog task={maintenance} />
                 </div>
               </CardContent>
@@ -381,7 +387,16 @@ function useTaskApi() {
     const res = await fetchJson<{ task: any }>(`${API_BASE_URL}/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(body) })
     return res.task
   }
-  return { patchTask }
+  async function deleteTask(id: string) {
+    await fetchJson<{ success: boolean }>(`${API_BASE_URL}/tasks/${id}`, { method: 'DELETE' })
+    return true
+  }
+  async function notify(title: string, message: string, type: 'INFO'|'WARNING'|'ALERT' = 'INFO', metadata?: Record<string, any>) {
+    try {
+      await fetchJson(`${API_BASE_URL}/notifications`, { method: 'POST', body: JSON.stringify({ title, message, type, metadata }) })
+    } catch {}
+  }
+  return { patchTask, deleteTask, notify }
 }
 
 function EditScheduleDialog({ task, onUpdated }: { task: any; onUpdated: (t: any) => void }) {
@@ -466,6 +481,42 @@ function EditScheduleDialog({ task, onUpdated }: { task: any; onUpdated: (t: any
   )
 }
 
+function StartButton({ task, onUpdated }: { task: any; onUpdated: (t: any) => void }) {
+  const { patchTask, notify } = useTaskApi()
+  const [busy, setBusy] = useState(false)
+  const disabled = busy || task.status === 'in_progress' || task.status === 'completed'
+  async function onClick() {
+    if (disabled) return
+    setBusy(true)
+    try {
+      const updated = await patchTask(task.id, { status: 'in_progress' })
+      await notify('Task started', `${updated.taskName} has been initiated`, 'INFO', { id: updated.id })
+      onUpdated(updated)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return <Button size="sm" variant="secondary" onClick={onClick} disabled={disabled}>{busy ? 'Starting…' : 'Start'}</Button>
+}
+
+function CompleteButton({ task, onUpdated }: { task: any; onUpdated: (t: any) => void }) {
+  const { patchTask, notify } = useTaskApi()
+  const [busy, setBusy] = useState(false)
+  const disabled = busy || task.status === 'completed'
+  async function onClick() {
+    if (disabled) return
+    setBusy(true)
+    try {
+      const updated = await patchTask(task.id, { status: 'completed' })
+      await notify('Task completed', `${updated.taskName} marked completed`, 'INFO', { id: updated.id })
+      onUpdated(updated)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return <Button size="sm" variant="outline" onClick={onClick} disabled={disabled}>{busy ? 'Completing…' : 'Complete'}</Button>
+}
+
 function AssignTechDialog({ task, onUpdated }: { task: any; onUpdated: (t: any) => void }) {
   const [open, setOpen] = useState(false)
   const [tech, setTech] = useState(task.assignedTechnician || "")
@@ -491,6 +542,18 @@ function AssignTechDialog({ task, onUpdated }: { task: any; onUpdated: (t: any) 
       </DialogContent>
     </Dialog>
   )
+}
+
+function DeleteTaskButton({ id, onDeleted }: { id: string; onDeleted: (id: string) => void }) {
+  const { deleteTask } = useTaskApi()
+  const [busy, setBusy] = useState(false)
+  async function onDelete() {
+    if (busy) return
+    if (!confirm('Delete this task?')) return
+    setBusy(true)
+    try { await deleteTask(id); onDeleted(id) } finally { setBusy(false) }
+  }
+  return <Button size="sm" variant="destructive" onClick={onDelete} disabled={busy}>{busy ? 'Deleting…' : 'Delete'}</Button>
 }
 
 function ViewDetailsDialog({ task }: { task: any }) {

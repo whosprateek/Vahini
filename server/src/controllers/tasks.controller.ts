@@ -55,6 +55,13 @@ export async function updateTask(req: AuthRequest, res: Response) {
   res.json({ task: serialize(t) })
 }
 
+export async function deleteTask(req: AuthRequest, res: Response) {
+  const id = req.params.id
+  const t = await Task.findByIdAndDelete(id)
+  if (!t) return res.status(404).json({ error: 'Not found' })
+  res.json({ success: true, id })
+}
+
 function serialize(t: any) {
   return {
     id: t.id,

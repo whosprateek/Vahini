@@ -93,11 +93,11 @@ function MapComponent({ center, zoom, onMapLoad, className, children }: MapCompo
 }
 
 export function GoogleMapWrapper({ center, zoom, children, onMapLoad, className }: GoogleMapWrapperProps) {
-  // Demo API key for testing - replace with your own for production
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyBFw0Qbyq9zTFTd-tUY6dpoWWdekhVKX3o"
+  // Require a valid API key; do not fallback to any hardcoded key
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
   
   return (
-    <Wrapper apiKey={apiKey} render={render}>
+    <Wrapper apiKey={apiKey || ''} render={render}>
       <MapComponent 
         center={center} 
         zoom={zoom} 

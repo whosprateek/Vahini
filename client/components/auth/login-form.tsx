@@ -98,7 +98,7 @@ export function LoginForm() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@powergrid.com"
+                placeholder="you@example.com"
                 value={loginData.email}
                 onChange={(e) => handleInputChange("email", e.target.value)}
                 className="h-12"
@@ -191,19 +191,7 @@ export function LoginForm() {
               </a>
             </div>
             
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-200" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white dark:bg-slate-900 px-2 text-gray-500">Demo Credentials</span>
-              </div>
-            </div>
-
-            <div className="text-center space-y-1 text-sm text-gray-600 dark:text-gray-400">
-              <p><strong>Email:</strong> admin@powergrid.com</p>
-              <p><strong>Password:</strong> admin123</p>
-            </div>
+            {/* Demo credentials removed for security. Use real accounts only. */}
           </div>
         </CardContent>
       </Card>
