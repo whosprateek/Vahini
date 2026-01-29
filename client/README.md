@@ -43,8 +43,8 @@ A comprehensive power grid monitoring and management system built with Next.js, 
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/vahini-power-grid-master.git
-   cd vahini-power-grid-master
+   git clone https://github.com/whosprateek/Vahini.git
+   cd Vahini
    ```
 
 2. **Install dependencies**
@@ -163,8 +163,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👥 Team
 
-- **Developer**: Aditya Raj Singh
-- **Email**: adityaraj200326@gmail.com
+- **Developer**: Prateek Sharma
+- **Email**: prateeksharmakkr@gmail.com
 
 ## 🙏 Acknowledgments
 
@@ -177,7 +177,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 If you have any questions or need help with the project, feel free to:
 - Open an issue on GitHub
-- Contact: adityaraj200326@gmail.com
+- Contact: prateeksharmakkr@gmail.com
 
 ---
 
