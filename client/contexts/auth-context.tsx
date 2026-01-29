@@ -84,6 +84,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   // Demo login removed to avoid hardcoded credentials
+    const loginDemo = async () => {
+    localStorage.setItem("VAHINI_DEMO", "1");
+    setIsDemo(true);
+    return true;
+  };
 
   const logout = async () => {
     setIsLoading(true)
