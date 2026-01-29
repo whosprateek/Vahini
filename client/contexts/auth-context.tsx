@@ -1,8 +1,8 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect } from 'react'
-import { API_BASE_URL, fetchJson } from '@/lib/api'
-import { setToken, clearToken, getToken } from '@/lib/auth-token'
+import React, { createContext, useContext, useState, useEffect } from "react"
+import { API_BASE_URL, fetchJson } from "@/lib/api"
+import { setToken, clearToken, getToken } from "@/lib/auth-token"
 
 interface User {
   id: string
@@ -16,7 +16,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   isDemo: boolean
   login: (email: string, password: string, rememberMe: boolean) => Promise<boolean>
-  // loginDemo removed
+  loginDemo: () => Promise<boolean>
   logout: () => Promise<void>
   isLoading: boolean
 }
@@ -26,7 +26,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function useAuth() {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider')
+    throw new Error("useAuth must be used within an AuthProvider")
   }
   return context
 }
@@ -34,19 +34,21 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isDemo, setIsDemo] = useState<boolean>(false) // legacy flag retained to gate demo-only UI, but demo login is disabled
+  const [isDemo, setIsDemo] = useState<boolean>(false)
 
-  // Check for existing session on mount via backend (using JWT header)
+  // Load session once on mount
   useEffect(() => {
     let cancelled = false
+
     async function loadSession() {
       try {
-        // Only try if we have a token stored
-        const token = typeof window !== 'undefined' ? getToken() : null
+        const token = typeof window !== "undefined" ? getToken() : null
         if (!token) {
           if (!cancelled) setUser(null)
         } else {
-          const data = await fetchJson<{ user: User }>(`${API_BASE_URL}/auth/me`, { method: 'GET' })
+          const data = await fetchJson<{ user: User }>(`${API_BASE_URL}/auth/me`, {
+            method: "GET"
+          })
           if (!cancelled) setUser(data.user)
         }
       } catch {
@@ -58,24 +60,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
-    loadSession()
-    return () => { cancelled = true }
-  }, [user?.email])
 
-  const login = async (email: string, password: string, rememberMe: boolean): Promise<boolean> => {
+    loadSession()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const login = async (
+    email: string,
+    password: string,
+    rememberMe: boolean
+  ): Promise<boolean> => {
     setIsLoading(true)
     try {
-      const data = await fetchJson<{ user: User, token: string }>(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        body: JSON.stringify({ email, password, rememberMe }),
-      })
+      const data = await fetchJson<{ user: User; token: string }>(
+        `${API_BASE_URL}/auth/login`,
+        {
+          method: "POST",
+          body: JSON.stringify({ email, password, rememberMe })
+        }
+      )
+
       setToken(data.token, rememberMe)
       setUser(data.user)
-      if (typeof window !== 'undefined') {
-        setIsDemo(false)
-      }
+      setIsDemo(false)
       return true
-    } catch (e) {
+    } catch {
       setUser(null)
       return false
     } finally {
@@ -83,38 +94,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-    const loginDemo = async () => {
-    localStorage.setItem("VAHINI_DEMO", "1");
-    setIsDemo(true);
-    return true;
-  };
+  const loginDemo = async (): Promise<boolean> => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("VAHINI_DEMO", "1")
+    }
+    setIsDemo(true)
+    return true
+  }
 
   const logout = async () => {
     setIsLoading(true)
     try {
-      await fetchJson(`${API_BASE_URL}/auth/logout`, { method: 'POST' })
+      await fetchJson(`${API_BASE_URL}/auth/logout`, { method: "POST" })
     } finally {
       clearToken()
-      if (typeof window !== 'undefined') window.localStorage.setItem('VAHINI_DEMO','0')
+      if (typeof window !== "undefined") {
+        localStorage.setItem("VAHINI_DEMO", "0")
+      }
       setIsDemo(false)
       setUser(null)
       setIsLoading(false)
     }
   }
 
-  const value = {
+  const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
     isDemo,
     login,
-    // loginDemo removed
+    loginDemo,
     logout,
     isLoading
   }
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
